@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>漫展购物清单</title>
+<title>mikufans</title>
 <style>
   :root {
     --primary: #007AFF;
@@ -662,6 +662,7 @@
   .tag-ip { background: rgba(88, 86, 214, 0.12); color: #5856D6; }
   .tag-type-goods { background: rgba(0, 122, 255, 0.12); color: #007AFF; margin-right: 6px; }
   .tag-type-book { background: rgba(52, 199, 89, 0.12); color: #34C759; margin-right: 6px; }
+  .tag-type-free { background: rgba(255, 149, 0, 0.12); color: #FF9500; margin-right: 6px; }
   .tag-status-bought { background: var(--green-light); color: var(--green); }
   .tag-status-queue { background: var(--orange-light); color: var(--orange); }
   .tag-status-soldout { background: var(--gray-light); color: var(--gray); }
@@ -887,6 +888,7 @@
       <button class="seg-btn active" data-type="all" onclick="setTypeFilter('all')">全部</button>
       <button class="seg-btn" data-type="goods" onclick="setTypeFilter('goods')">谷</button>
       <button class="seg-btn" data-type="book" onclick="setTypeFilter('book')">本</button>
+      <button class="seg-btn" data-type="free" onclick="setTypeFilter('free')">无料</button>
     </div>
     <select class="sort-select" id="sort-select" onchange="renderItems()">
       <option value="venue">按场馆摊位</option>
@@ -948,6 +950,7 @@
     <div class="type-switch">
       <button class="type-btn active" data-type="goods" onclick="setItemType('goods')">谷</button>
       <button class="type-btn" data-type="book" onclick="setItemType('book')">本</button>
+      <button class="type-btn" data-type="free" onclick="setItemType('free')">无料</button>
     </div>
     <div class="form-group">
       <label>物品名称</label>
@@ -968,7 +971,7 @@
         <button class="btn" style="margin-top:8px" onclick="removeImage()">移除图片</button>
       </div>
     </div>
-    <div class="form-row">
+    <div class="form-row" id="price-row">
       <div class="form-group">
         <label>价格（元）</label>
         <input type="number" id="item-price" min="0" step="0.01" placeholder="0">
@@ -982,7 +985,7 @@
         <input type="text" id="item-booth" placeholder="如 A12">
       </div>
     </div>
-    <div class="form-group">
+    <div class="form-group" id="sale-group">
       <label>贩售情况 <span style="font-weight:normal;color:var(--text-light)">（点选，或在下方输入自定义）</span></label>
       <div class="tag-picker" id="sale-picker"></div>
       <input type="text" id="sale-custom" placeholder="或自定义输入" style="margin-top:8px" oninput="syncSale(this.value)">
@@ -1971,7 +1974,7 @@ function buildItemCard(it) {
     </div>
     <div class="item-main">
       <div class="item-name">
-        <span class="tag ${it.type === 'book' ? 'tag-type-book' : 'tag-type-goods'}">${it.type === 'book' ? '本' : '谷'}</span>
+        <span class="tag ${it.type === 'book' ? 'tag-type-book' : it.type === 'free' ? 'tag-type-free' : 'tag-type-goods'}">${it.type === 'book' ? '本' : it.type === 'free' ? '无料' : '谷'}</span>
         ${escapeHtml(it.name)}
       </div>
       <div class="item-meta">
@@ -1981,7 +1984,7 @@ function buildItemCard(it) {
       </div>
     </div>
     <div class="item-right">
-      <div class="item-price">¥${Number(it.price || 0).toFixed(0)}</div>
+      <div class="item-price">${it.type === 'free' ? '无料' : '¥' + Number(it.price || 0).toFixed(0)}</div>
       <div class="item-tags">
         ${it.priority ? `<span class="tag tag-priority">${escapeHtml(it.priority)}</span>` : ''}
         <span class="tag ${statusClass}">${escapeHtml(it.status || '清单里')}</span>
@@ -2155,6 +2158,10 @@ function setItemType(t, silent) {
   document.querySelectorAll('.type-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.type === t);
   });
+  // 无料时隐藏价格和贩售情况
+  const isFree = t === 'free';
+  document.getElementById('price-row').style.display = isFree ? 'none' : 'flex';
+  document.getElementById('sale-group').style.display = isFree ? 'none' : 'block';
 }
 
 function setPriority(p) {
