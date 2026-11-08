@@ -1251,6 +1251,33 @@ function genId(prefix) {
   return prefix + '_' + Date.now().toString(36) + '_' + (_idSeq++).toString(36);
 }
 
+// ===== 服务器同步 =====
+const isServerMode = location.protocol.startsWith('http');
+
+function syncToServer() {
+  if (!isServerMode) return;
+  try {
+    fetch('/api/data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DB.getData())
+    }).catch(e => console.warn('sync to server failed', e));
+  } catch (e) {}
+}
+
+async function syncFromServer() {
+  if (!isServerMode) return;
+  try {
+    const res = await fetch('/api/data');
+    if (res.ok) {
+      const data = await res.json();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+  } catch (e) {
+    console.warn('sync from server failed', e);
+  }
+}
+
 const DB = {
   load() {
     try {
@@ -1265,6 +1292,7 @@ const DB = {
   },
   save(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    syncToServer();
   },
   getData() { return this._data || (this._data = this.load()); },
   reset() { this._data = { events: [], items: [], books: [] }; this.save(this._data); },
@@ -2553,11 +2581,18 @@ document.querySelectorAll('.modal-overlay').forEach(ov => {
 });
 
 // 初始化
-loadBgTint();
-applyPrimaryColor(getPrimaryColor());
-applyTheme();
-loadBg();
-renderHome();
+async function init() {
+  // 服务器模式下，先从服务器拉最新数据
+  await syncFromServer();
+  // 重新加载数据（因为从服务器拉了新数据）
+  DB._data = null;
+  loadBgTint();
+  applyPrimaryColor(getPrimaryColor());
+  applyTheme();
+  loadBg();
+  renderHome();
+}
+init();
 </script>
 </body>
 </html>
