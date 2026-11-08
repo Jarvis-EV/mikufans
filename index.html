@@ -601,6 +601,40 @@
 
   /* ===== 物品卡片 ===== */
   .item-list { padding: 24px; max-width: 700px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+  .ip-sidebar {
+    background: var(--card-bg);
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+  .ip-sidebar-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 10px;
+  }
+  .ip-tag {
+    padding: 6px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-light);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+    transition: background 0.15s;
+  }
+  .ip-tag:hover { background: rgba(255, 255, 255, 0.4); }
+  .ip-tag.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .ip-count { font-size: 11px; opacity: 0.7; }
   .item-tab-bar { display: flex; gap: 8px; }
   .item-tab {
     padding: 8px 20px;
@@ -890,10 +924,11 @@
       <button class="seg-btn" data-type="book" onclick="setTypeFilter('book')">本</button>
       <button class="seg-btn" data-type="free" onclick="setTypeFilter('free')">无料</button>
     </div>
-    <select class="sort-select" id="sort-select" onchange="renderItems()">
+    <select class="sort-select" id="sort-select" onchange="currentItemIpFilter='';renderItems()">
       <option value="venue">按场馆摊位</option>
       <option value="priority">按优先级</option>
       <option value="created">按添加时间</option>
+      <option value="ip">按IP分类</option>
     </select>
   </div>
   <div class="item-list" id="item-list"></div>
@@ -1422,6 +1457,12 @@ function sortItems(items, sortBy) {
     arr.sort((a, b) => priorityWeight(a.priority) - priorityWeight(b.priority));
   } else if (sortBy === 'created') {
     arr.sort((a, b) => b.createdAt - a.createdAt);
+  } else if (sortBy === 'ip') {
+    arr.sort((a, b) => {
+      const ia = (a.ip || '').localeCompare(b.ip || '');
+      if (ia !== 0) return ia;
+      return (a.name || '').localeCompare(b.name || '');
+    });
   }
   return arr;
 }
@@ -1908,6 +1949,13 @@ function setItemTab(tab) {
   renderItems();
 }
 
+// IP 筛选
+let currentItemIpFilter = '';
+function setItemIpFilter(ip) {
+  currentItemIpFilter = ip;
+  renderItems();
+}
+
 function renderItems() {
   if (!currentEventId) return;
   const keyword = document.getElementById('search-input').value.trim().toLowerCase();
@@ -1916,6 +1964,18 @@ function renderItems() {
 
   if (typeFilter !== 'all') items = items.filter(i => i.type === typeFilter);
   if (keyword) items = items.filter(i => i.name.toLowerCase().includes(keyword));
+
+  // 计算所有IP及数量（用于侧边栏）
+  const ipCount = {};
+  items.forEach(i => {
+    if (i.ip) ipCount[i.ip] = (ipCount[i.ip] || 0) + 1;
+  });
+
+  // 按IP筛选
+  if (currentItemIpFilter) {
+    items = items.filter(i => i.ip === currentItemIpFilter);
+  }
+
   items = sortItems(items, sortBy);
 
   const listEl = document.getElementById('item-list');
@@ -1931,6 +1991,19 @@ function renderItems() {
     return;
   }
   emptyEl.style.display = 'none';
+
+  // 按IP排序时，显示IP侧边栏
+  if (sortBy === 'ip' && Object.keys(ipCount).length > 0) {
+    const ipSidebar = document.createElement('div');
+    ipSidebar.className = 'ip-sidebar';
+    let ipHtml = '<div class="ip-sidebar-title">IP 分类</div>';
+    ipHtml += '<div class="ip-tag ' + (currentItemIpFilter === '' ? 'active' : '') + '" onclick="setItemIpFilter(\'\')">全部 <span class="ip-count">' + items.length + '</span></div>';
+    Object.keys(ipCount).sort().forEach(ip => {
+      ipHtml += '<div class="ip-tag ' + (currentItemIpFilter === ip ? 'active' : '') + '" onclick="setItemIpFilter(\'' + escapeHtml(ip).replace(/'/g, "\\'") + '\')">' + escapeHtml(ip) + ' <span class="ip-count">' + ipCount[ip] + '</span></div>';
+    });
+    ipSidebar.innerHTML = ipHtml;
+    listEl.appendChild(ipSidebar);
+  }
 
   // 切换按钮
   const tabBar = document.createElement('div');
